@@ -2,8 +2,8 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
+// import jwt from "jsonwebtoken";
+// import bcrypt from "bcrypt";
 import cookieParser from "cookie-parser";
 import connectDB from "./src/db/index.js";
 import router from "./src/routes/users.routes.js";
