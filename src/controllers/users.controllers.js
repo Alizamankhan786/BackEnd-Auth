@@ -62,23 +62,16 @@ const loginUser = async (req, res) => {
     if (!password) return res.status(400).json({ message: "Password is required" });
 
     try {
-        // Check if user exists
         const user = await User.findOne({ email });
         if (!user) return res.status(404).json({ message: "No user found" });
 
-        // Debugging passwords
         console.log("Hashed password in DB:", user.password);
         console.log("Entered password:", password);
 
-        // Compare passwords
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) return res.status(400).json({ message: "Incorrect password" });
 
-        // Generate tokens
         const accessToken = generateAccessToken(user._id);
         const refreshToken = generateRefreshToken(user._id);
 
-        // Set refresh token in cookie
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
@@ -110,35 +103,42 @@ const logoutUser = async (req , res) => {
 
 
 // refreshtoken
+const refreshToken = async (req, res) => {
+    try {
+        const token = req.cookies.refreshToken || req.body.refreshToken;
+        if (!token) {
+            return res.status(401).json({
+                message: "No Refresh Token Found!",
+            });
+        }
+        const decodedToken = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
+        const user = await User.findOne({ _id: decodedToken.id });
+        if (!user) {
+            return res.status(404).json({
+                message: "Invalid Token",
+            });
+        }
 
-const refreshToken = async (req , res) => {
-    const refreshToken = req.cookie.refreshToken || req.body.refreshToken;
-    if(!refreshToken){
-        return res.status(401).json({
-            message: "No RefreshToken Found!"
-        });
+        const newAccessToken = generateAccessToken(user._id);
 
-        const decodedToken = jwt.verify(refreshToken, process.env.REFRESH_JWT_SECRET);
-
-        const user = await User.findOne({
-            email: decodedToken.email,
-        });
-        if (!user) return res.status(404).json({
-            message: "Invalid Token"
-        });
-
-        const generateToken = generateAccessToken(user);
         res.json({
             message: "Access Token Generated",
-            accessToken: generateToken,
+            accessToken: newAccessToken,
         });
+    } catch (error) {
+        console.error("Error refreshing token:", error);
 
-        res.json({
-            decodedToken,
+        if (error.name === "TokenExpiredError") {
+            return res.status(403).json({ message: "Refresh token expired" });
+        }
+        if (error.name === "JsonWebTokenError") {
+            return res.status(403).json({ message: "Invalid refresh token" });
+        }
+        res.status(500).json({
+            message: "Internal server error",
         });
-    };
+    }
+};
 
-    
-}
 
 export {registerUser , loginUser , logoutUser , refreshToken};
